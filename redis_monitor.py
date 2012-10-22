@@ -7,7 +7,7 @@ import logging
 
 from zktools.locking import ZkLock
 from zc.zk import *
-from utils import *
+from redis_failover.utils import *
 
 from cluster import Cluster
 
