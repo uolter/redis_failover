@@ -93,41 +93,38 @@ class RedisMonitor():
         logger.info("Enter")
         self.discover_redis()
         while True:
-            try:
-                message = self.queue.get(timeout=3)
-                logger.debug("Received message from Worker: [%s]", message)
-                server, new_status = message.split(',')
-                host, port = server.split(':')
-                redis_node = self.cluster.get_server(host, port)
-                old_status = redis_node.status
+            message = self.queue.get()
+            logger.debug("Received message from Worker: [%s]", message)
+            server, new_status = message.split(',')
+            host, port = server.split(':')
+            redis_node = self.cluster.get_server(host, port)
+            old_status = redis_node.status
 
-                if new_status == REDIS_STATUS_KO:
-                    if old_status == REDIS_STATUS_OK:
-                        logger.warn("Node (%s) [%s] has DIED!", redis_node.role, server)
-                        if redis_node.role == ROLE_MASTER:
-                            logger.warn("Master is down: promoting a new master...")
-                            self.promote_new_master(redis_node)
-                        else:
-                            redis_node.status = REDIS_STATUS_KO
-                        self.update_zk()
-                elif new_status == REDIS_STATUS_OK:
-                    if old_status == REDIS_STATUS_KO:
-                        logger.warn("Node (%s) [%s] has RESURRECTED!", redis_node.role, server)
-                        redis_node.status = REDIS_STATUS_OK
-                        redis_node = get_redis_node(host=redis_node.host, port=redis_node.port)
-                        master = self.cluster.get_master()
-                        redis_node.slaveof(master.host, master.port)
-                        self.update_zk()
-                else:
-                    logger.critical("Worker sent an unknown status: [%r]", new_status)
-                
-                # check if all worker daemons are still alive, if not then re-start
-                for worker in self.list_of_workers:
-                    if not worker.get_process().is_alive():
-                        logger.error("Process [%s] has died, restarting it...", worker.get_process().name)
-                        worker.start()
-            except Queue.Empty:
-                sleep(1)
+            if new_status == REDIS_STATUS_KO:
+                if old_status == REDIS_STATUS_OK:
+                    logger.warn("Node (%s) [%s] has DIED!", redis_node.role, server)
+                    if redis_node.role == ROLE_MASTER:
+                        logger.warn("Master is down: promoting a new master...")
+                        self.promote_new_master(redis_node)
+                    else:
+                        redis_node.status = REDIS_STATUS_KO
+                    self.update_zk()
+            elif new_status == REDIS_STATUS_OK:
+                if old_status == REDIS_STATUS_KO:
+                    logger.warn("Node (%s) [%s] has RESURRECTED!", redis_node.role, server)
+                    redis_node.status = REDIS_STATUS_OK
+                    redis_node = get_redis_node(host=redis_node.host, port=redis_node.port)
+                    master = self.cluster.get_master()
+                    redis_node.slaveof(master.host, master.port)
+                    self.update_zk()
+            else:
+                logger.critical("Worker sent an unknown status: [%r]", new_status)
+            
+            # check if all worker daemons are still alive, if not then re-start
+            for worker in self.list_of_workers:
+                if not worker.get_process().is_alive():
+                    logger.error("Process [%s] has died, restarting it...", worker.get_process().name)
+                    worker.start()
 
         logger.info("Exit")
 
