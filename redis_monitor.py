@@ -8,8 +8,7 @@ import logging
 from zktools.locking import ZkLock
 from zc.zk import *
 from redis_failover.utils import *
-
-from cluster import Cluster
+from redis_failover.cluster import Cluster
 
 class Constants():
     

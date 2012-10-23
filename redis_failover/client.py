@@ -61,12 +61,13 @@ class RedisFailover():
          
         self.hosts=hosts # zookeeper hosts list.
         self.zk= zc.zk.ZooKeeper(self.hosts)
+        self.zk_path =zk_path
              
         @self.zk.properties(utils.REDIS_PATH)
         def my_data(p):
             '''
                 listener to zk node value changes
-            '''
+            ''' 
             self._setup_redis_master()
             self._setup_redis_slaves()
               
@@ -75,7 +76,7 @@ class RedisFailover():
    
     def _setup_redis_slaves(self):
                 
-        slaves = self.zk.get_properties(utils.REDIS_PATH)['slaves']
+        slaves = self.zk.get_properties(self.zk_path)['slaves']
         
         self.host_slaves = []
         for s in slaves:
@@ -96,7 +97,7 @@ class RedisFailover():
                
     def _setup_redis_master(self):
          
-        self.host_master = self.zk.get_properties(utils.REDIS_PATH)['master'][0]
+        self.host_master = self.zk.get_properties(self.zk_path)['master'][0]
         
         # connection pool to the master node.
         pool = redis.ConnectionPool(host=self.host_master.split(':')[0], 
