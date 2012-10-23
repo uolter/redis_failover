@@ -126,7 +126,7 @@ class RedisMonitor():
                     if not worker.get_process().is_alive():
                         logger.error("Process [%s] has died, restarting it...", worker.get_process().name)
                         worker.start()
-            except Queue.Empty
+            except Queue.Empty:
                 sleep(1)
 
         logger.info("Exit")
