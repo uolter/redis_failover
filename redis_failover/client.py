@@ -57,7 +57,7 @@ class RedisFailover():
     }
     
     
-    def __init__(self, hosts='localhost:2181', zk_path='/redis/cluster', logger=None):
+    def __init__(self, hosts='localhost:2181', zk_path='/redis/cluster'):
          
         self.hosts=hosts # zookeeper hosts list.
         self.zk= zc.zk.ZooKeeper(self.hosts)
