@@ -63,7 +63,7 @@ class RedisFailover():
         self.zk= zc.zk.ZooKeeper(self.hosts)
         self.zk_path =zk_path
              
-        @self.zk.properties(utils.REDIS_PATH)
+        @self.zk.properties(self.zk_path)
         def my_data(p):
             '''
                 listener to zk node value changes
