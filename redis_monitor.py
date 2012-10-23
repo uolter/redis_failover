@@ -4,17 +4,22 @@ from time import sleep
 import redis
 from redis.exceptions import ConnectionError
 import logging
+import logging.config
 
 from zktools.locking import ZkLock
 from zc.zk import *
 from redis_failover.utils import *
 from redis_failover.cluster import Cluster
 
+logging.config.fileConfig('loggers_redis_monitor.conf')
+logger = logging.getLogger(__name__)
+
 class Constants():
     
     REDIS_MONITOR_DUMMY_LIST = 'redis_monitor_dummy_list'
     SLEEP_TIME = -1
     ZOOKEEPER_LOCK = 'redis_monitor_lock'
+    LOG_FILE = None
 
 class RedisMonitor():
 
@@ -214,15 +219,16 @@ def main():
         setattr(parser.values, option.dest, value.split(','))
 
     parser = OptionParser()
-    parser.add_option("-z", "--zk_hosts", dest="zk_hosts", type='string', action='callback', callback=opt_callback,
+    parser.add_option("-z", "--zkhosts", dest="zk_hosts", type='string', action='callback', callback=opt_callback,
                   help="zookeeper list of host:port comma separated ")
     parser.add_option("-p", "--path", dest="zk_path", type='string',
                   help="zookeeper root path")
-    parser.add_option("-r", "--redis_hosts", dest="rs_hosts",type='string', action='callback', callback=opt_callback,
+    parser.add_option("-r", "--redishosts", dest="rs_hosts",type='string', action='callback', callback=opt_callback,
                   help="redis list of host:port comma separated ")
-    parser.add_option("-s", "--sleep_time", dest="sleep_time", type='int', help="waiting time in seconds between thread execution")
+    parser.add_option("-s", "--sleeptime", dest="sleep_time", type='int', help="waiting time in seconds between thread execution")
 
     options = parser.parse_args()[0]
+
     if options.sleep_time:
         Constants.SLEEP_TIME = options.sleep_time
         logger.info("SLEEP_TIME: %d", Constants.SLEEP_TIME)
@@ -242,13 +248,4 @@ def main():
 
 
 if __name__ == '__main__':
-    # Setup loggers
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    # create formatter and add it to the handlers
-    fmt = logging.Formatter('%(asctime)s - pid_%(process)d - %(levelname)s  - %(funcName)s - %(message)s')
-    sh = logging.StreamHandler()
-    sh.setFormatter(fmt)
-    logger.addHandler(sh)
-    # run main function
     main()
