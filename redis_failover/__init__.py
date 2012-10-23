@@ -1,1 +1,1 @@
-from redis_failover.client import RedisFailoverClient
+from redis_failover.client import RedisFailover

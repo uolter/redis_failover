@@ -10,7 +10,7 @@ import zc.zk
 import utils
 
 
-class RedisFailoverClient():
+class RedisFailover():
     '''
         This client extends the standard redis-py client in order to provide a fail-over mechanism 
         based on Apache ZooKeeper (http://zookeeper.apache.org/)
