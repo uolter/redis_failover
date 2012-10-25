@@ -2,43 +2,62 @@
 
 from utils import *
 
-class Node():
+class Node(object):
     
     def __init__(self, host, port, role, status):
-        self.host = host
-        self.port = int(port)
-        self.role = role
-        self.status = status
+        self._host = host
+        self._port = int(port)
+        self._role = role
+        self._status = status
+
+    @property
+    def host(self):
+        return self._host
+
+    @property
+    def port(self):
+        return self._port
+    
+    @property
+    def role(self):
+        return self._role
+
+    @property
+    def status(self):
+        return self._status
 
     def is_master(self):
-        return self.role == ROLE_MASTER
+        return self._role == ROLE_MASTER
 
     def is_slave(self):
-        return self.role == ROLE_SLAVE
+        return self._role == ROLE_SLAVE
 
     def is_alive(self):
-        return self.status == REDIS_STATUS_OK
+        return self._status == REDIS_STATUS_OK
 
     def setOK(self):
-        self.status = REDIS_STATUS_OK
+        self._status = REDIS_STATUS_OK
 
     def setKO(self):
-        self.status = REDIS_STATUS_KO
+        self._status = REDIS_STATUS_KO
 
-    def set_master(self):
-        self.role = ROLE_MASTER
+    def _set_master(self):
+        self._role = ROLE_MASTER
 
     def set_slave(self):
-        self.role = ROLE_SLAVE
+        self._role = ROLE_SLAVE
+
+    def __str__(self):
+        return "(%s:%d,%s,%s)" % (self.host, self.port, self.role, self.status)
 
 
-class Cluster:
+class Cluster(object):
 
     def __init__(self):
         self._map = {}
 
     def add_node(self, host, port, role=ROLE_SLAVE, status=REDIS_STATUS_OK):
-        key = self._getkey(host, port)
+        key = self._make_key(host, port)
         node = Node(host, port, role, status)
         self._map[key] = node
         return node
@@ -49,23 +68,18 @@ class Cluster:
             node = self._map[k]
             if node.is_master():
                 return node
-
-
-    def set_master(self, host, port):
-        key = self._getkey(host, port)
-        for k in self._map:
-            node = self._map[k]
-            node.set_slave()
-        self._set_role(host, port, ROLE_MASTER)
-
+        return None
 
     def promote_new_master(self, old_master):
+        assert old_master.is_master()
         old_master.setKO()
+        old_master.set_slave()
         for k in self._map:
             node = self._map[k]
             if node.is_alive():
-                self.set_master(node.host, node.port)
+                self._set_role(host, port, ROLE_MASTER)
                 return node
+        return None
 
 
     def filtered_list(self, roles=(ROLE_MASTER, ROLE_SLAVE), status=(REDIS_STATUS_OK, REDIS_STATUS_KO)):
@@ -78,7 +92,7 @@ class Cluster:
 
 
     def get_node(self, host, port):
-        key = self._getkey(host, port)
+        key = self._make_key(host, port)
         return self._map[key]
 
 
@@ -87,9 +101,18 @@ class Cluster:
 
 
     def _set_role(self, host, port, role):
-        key = self._getkey(host, port)
+        key = self._make_key(host, port)
         self._map[key].role = role
 
 
-    def _getkey(self, host, port):
+    def _make_key(self, host, port):
         return "%s:%s" % (host, port)
+
+    def __str__(self):
+        text = "["
+        for k in self._map:
+            node = self._map[k]
+            text += str(node)
+        text += "]"
+        return text
+

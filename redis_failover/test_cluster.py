@@ -33,12 +33,12 @@ class TestCluster(unittest.TestCase):
 
     def test_promote_new_master_single_node(self):
         print "test_promote_new_master_single_node"
-        self.cluster.add_node(host=HOST, port=PORT, role=ROLE_MASTER, status=REDIS_STATUS_OK)
+        old_master = self.cluster.add_node(host=HOST, port=PORT, role=ROLE_MASTER, status=REDIS_STATUS_OK)
         self.assertEqual(self.cluster.size(), 1)
+        #message = self._create_message(HOST, PORT, REDIS_STATUS_KO)
+        self.cluster.promote_new_master(old_master)
         node = self.cluster.get_master()
-        self.assertTrue(node.is_master())
-        self.cluster.promote_new_master(node)
-        self._compare_node(node, role=ROLE_MASTER, status=REDIS_STATUS_KO)
+        self.assertIsNone(node)
 
     def test_promote_new_master_all_dead(self):
         print "test_promote_new_master_all_dead"
@@ -46,12 +46,6 @@ class TestCluster(unittest.TestCase):
         self.cluster.add_node(host=HOST, port=PORT+1, role=ROLE_SLAVE, status=REDIS_STATUS_KO)
         self.cluster.add_node(host=HOST, port=PORT+2, role=ROLE_SLAVE, status=REDIS_STATUS_KO)
         self.assertEqual(self.cluster.size(), 3)
-        old_master = self.cluster.get_master()
-        self.assertTrue(old_master.is_master())
-        self.cluster.promote_new_master(old_master)
-        new_master = self.cluster.get_master()
-        self.assertTrue(old_master == new_master)
-        self.assertFalse(new_master.is_alive())
 
 
     def _compare_node(self, node, host=HOST, port=PORT, role=None, status=None):
@@ -59,6 +53,20 @@ class TestCluster(unittest.TestCase):
         self.assertEqual(node.status, status)
         self.assertEqual(node.host, host)
         self.assertEqual(node.port, port)
+
+
+    def test_master_alive_ko(self):
+        print "test_promote_new_master_one_alive"
+        self.cluster.add_node(host=HOST, port=PORT, role=ROLE_MASTER, status=REDIS_STATUS_OK)
+        self.cluster.add_node(host=HOST, port=PORT+1, role=ROLE_SLAVE, status=REDIS_STATUS_KO)
+        self.cluster.add_node(host=HOST, port=PORT+2, role=ROLE_SLAVE, status=REDIS_STATUS_KO)
+        #message = self._create_message(HOST, PORT, REDIS_STATUS_KO)
+
+
+    def _create_message(self, redis_host, redis_port, redis_status):
+        worker_name = '%s:%s' % (redis_host, redis_port)
+        text = "%s,%s" % (worker_name, redis_status)
+        return text
 
 
     def tearDown(self):

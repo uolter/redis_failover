@@ -21,9 +21,10 @@ class Constants():
     ZOOKEEPER_LOCK = 'redis_monitor_lock'
     LOG_FILE = None
 
-class RedisMonitor():
+class RedisMonitor(object):
 
     def __init__(self, zk, redis_hosts, zk_path='/redis/cluster'):
+        self.redis_class = redis.Redis
         self.zk = zk
         self.cluster = Cluster()
         self.queue = Queue()
@@ -31,9 +32,31 @@ class RedisMonitor():
         self.zk_properties = None
         self.list_of_workers = []
         self.zk_path = zk_path
+        #self.redis_connections_map = {}
 
 
-    def discover_redis(self):
+    def execute(self):
+        logger.info("Enter")
+        self._discover_redis()
+        while True:
+            self._parse_messages()
+            self._check_all_workers()
+        logger.info("Exit")
+
+
+    def _get_redis_connection(self, host, port):
+        # key = "%s:%d" % (host, port)
+        # conn = None
+        # if key in self.redis_connections_map:
+        #     conn = self.redis_connection_map[key]
+        # else:
+        #     conn = redis.Redis(host, int(port))
+        #     self.redis_connections_map[key] = conn
+        conn = self.redis_class(host, int(port))
+        return conn
+
+
+    def _discover_redis(self):
         '''
             check all the redis instances and registers to zk host, port and status.
             It also prepares all the worker processes for monitoring.
@@ -47,13 +70,13 @@ class RedisMonitor():
             host = r.split(':')[0]
             port = int(r.split(':')[1])
             try:
-                role = get_redis_connection(host=host, port=port).info()['role']
+                role = self._get_redis_connection(host=host, port=port).info()['role']
                 self.cluster.add_node(host, port, role, REDIS_STATUS_OK)
             except ConnectionError:
                 logger.error("Node [%r] not available !!", r)
                 self.cluster.add_node(host, port, role, REDIS_STATUS_KO)
             finally:
-                self.list_of_workers.append(Worker(host, port, self.queue))
+                self.list_of_workers.append(Worker(self._get_redis_connection(host=host, port=port), host, port, self.queue))
 
         node_master = self.cluster.get_master()
         master_node = ('%s:%s' %(node_master.host, node_master.port), REDIS_STATUS_OK)
@@ -75,61 +98,63 @@ class RedisMonitor():
         logger.info("Exit")
 
 
-    def promote_new_master(self, old_master):
+    def _promote_new_master(self, old_master):
         logger.info("Enter")
         # set this node as the master
-        new_master = self.cluster.promote_new_master(old_master)
-        redis_conn = get_redis_connection(host=new_master.host, port=new_master.port)
-        redis_conn.slaveof()
-        # set all the other nodes as slaves of the master
-        list_of_slaves = self.cluster.filtered_list(roles=(ROLE_SLAVE,), status=(REDIS_STATUS_OK,))
-        for slave in list_of_slaves:
-            redis_conn = get_redis_connection(host=slave.host, port=slave.port)
-            redis_conn.slaveof(host=new_master.host, port=new_master.port)
-        logger.info("Exit")
-
-
-    def execute(self):
-        logger.info("Enter")
-        self.discover_redis()
-        while True:
-            message = self.queue.get()
-            logger.debug("Received message from Worker: [%s]", message)
-            server, new_status = message.split(',')
-            host, port = server.split(':')
-            redis_node = self.cluster.get_node(host, port)
-            old_status = redis_node.status
-
-            if new_status == REDIS_STATUS_KO:
-                if old_status == REDIS_STATUS_OK:
-                    logger.warn("Node (%s) [%s] has DIED!", redis_node.role, server)
-                    if redis_node.is_master():
-                        logger.warn("Master is down: promoting a new master...")
-                        self.promote_new_master(redis_node)
-                    else:
-                        redis_node.setKO()
-                    self.update_zk()
-            elif new_status == REDIS_STATUS_OK:
-                if old_status == REDIS_STATUS_KO:
-                    logger.warn("Node (%s) [%s] has RESURRECTED!", redis_node.role, server)
-                    redis_node.status = REDIS_STATUS_OK
-                    redis_conn = get_redis_connection(host=redis_node.host, port=redis_node.port)
-                    master = self.cluster.get_master()
-                    redis_conn.slaveof(master.host, master.port)
-                    self.update_zk()
-            else:
-                logger.critical("Worker sent an unknown status: [%r]", new_status)
-            
-            # check if all worker daemons are still alive, if not then re-start
-            for worker in self.list_of_workers:
-                if not worker.get_process().is_alive():
-                    logger.error("Process [%s] has died, restarting it...", worker.get_process().name)
-                    worker.start()
+        new_master = self.cluster._promote_new_master(old_master)
+        if new_master:
+            redis_conn = self._get_redis_connection(host=new_master.host, port=new_master.port)
+            redis_conn.slaveof()
+            # set all the other nodes as slaves of the master
+            list_of_slaves = self.cluster.filtered_list(roles=(ROLE_SLAVE,), status=(REDIS_STATUS_OK,))
+            for slave in list_of_slaves:
+                redis_conn = self._get_redis_connection(host=slave.host, port=slave.port)
+                redis_conn.slaveof(host=new_master.host, port=new_master.port)
+        else:
+            # there isn't any alive node
+            old_master.set_slave()
 
         logger.info("Exit")
 
 
-    def update_zk(self):
+    def _parse_messages(self):
+        message = self.queue.get()
+        logger.debug("Received message from Worker: [%s]", message)
+        server, new_status = message.split(',')
+        host, port = server.split(':')
+        redis_node = self.cluster.get_node(host, port)
+        old_status = redis_node.status
+
+        if new_status == REDIS_STATUS_KO:
+            if old_status == REDIS_STATUS_OK:
+                logger.warn("Node (%s) [%s] has DIED!", redis_node.role, server)
+                if redis_node.is_master():
+                    logger.warn("Master is down: promoting a new master...")
+                    self._promote_new_master(redis_node)
+                else:
+                    redis_node.setKO()
+                self._update_zk()
+        elif new_status == REDIS_STATUS_OK:
+            if old_status == REDIS_STATUS_KO:
+                logger.warn("Node (%s) [%s] has RESURRECTED!", redis_node.role, server)
+                redis_node.setOK()
+                redis_conn = self._get_redis_connection(host=redis_node.host, port=redis_node.port)
+                master = self.cluster.get_master()
+                redis_conn.slaveof(master.host, master.port)
+                self._update_zk()
+        else:
+            logger.critical("Worker sent an unknown status: [%r]", new_status)
+
+
+    def _check_all_workers(self):
+        ''' check if all worker daemons are still alive, if not then re-start '''
+        for worker in self.list_of_workers:
+            if not worker.get_process().is_alive():
+                logger.error("Process [%s] has died, restarting it...", worker.get_process().name)
+                worker.start()
+
+
+    def _update_zk(self):
         logger.info("Enter")
         master = self.cluster.get_master()
         master_as_tuple = ('%s:%s' %(master.host, master.port), REDIS_STATUS_OK)
@@ -148,9 +173,10 @@ class RedisMonitor():
        self.zk_properties.update(master = master, slaves = slaves)
 
 
-class Worker():
+class Worker(object):
 
-    def __init__(self, redis_host, redis_port, queue):
+    def __init__(self, redis_connection, redis_host, redis_port, queue):
+        self.redis_connection = redis_connection
         self.redis_host = redis_host
         self.redis_port = int(redis_port)
         self.queue = queue
@@ -159,7 +185,7 @@ class Worker():
 
     def start(self):
         self.process = Process(target=self.worker, name=self.worker_name, 
-            args=(self.worker_name, self.redis_host, self.redis_port))
+            args=(self.redis_connection, self.worker_name, self.redis_host, self.redis_port))
         self.process.daemon = True
         self.process.start()
 
@@ -173,20 +199,26 @@ class Worker():
         self.queue.put(text)
 
 
-    def worker(self, worker_name, redis_host, redis_port):
+    def check_redis_connection(self, timeout):
+        self.redis_connection.blpop(Constants.REDIS_MONITOR_DUMMY_LIST, timeout)
+
+    def redis_ready(self, redis_info):
+        return redis_info.get("loading", 0) == 0 and redis_info.get("master_sync_in_progress", 0) == 0
+
+
+    def worker(self, redis_connection, worker_name, redis_host, redis_port):
         logger.info("%s started.", worker_name)
         # connect to Redis
-        redis_conn = get_redis_connection(host=redis_host, port=redis_port)
         while True:
             try:
-                check_redis_connection(redis_conn, 1)
-                redis_info = redis_conn.info()
+                self.check_redis_connection(timeout=1)
+                redis_info = redis_connection.info()
                 role = redis_info['role']
-                if redis_ready(redis_info):
+                if self.redis_ready(redis_info):
                     # send the OK message
                     self.send_message(REDIS_STATUS_OK)                
                     logger.debug("%s: (%s) Node status [%r]", worker_name, role, REDIS_STATUS_OK)
-                    check_redis_connection(redis_conn, Constants.SLEEP_TIME)
+                    self.check_redis_connection(timeout=Constants.SLEEP_TIME)
                 else:
                     logger.warn("%s: Redis node (%s) is not ready yet: loading: [%r], master_sync_in_progress: [%r]",
                         worker_name, role, redis_info.get("loading", ''), redis_info.get("master_sync_in_progress", ''))
@@ -198,19 +230,7 @@ class Worker():
 
 #
 # Module objects
-#
-
-def redis_ready(redis_info):
-    return redis_info.get("loading", 0) == 0 and redis_info.get("master_sync_in_progress", 0) == 0
-
-
-def check_redis_connection(redis_conn, timeout):
-    redis_conn.blpop(Constants.REDIS_MONITOR_DUMMY_LIST, timeout)
-
-
-def get_redis_connection(host, port):
-    return redis.Redis(host, int(port))
-    
+#    
 
 def main():
     logger.info("Enter")
@@ -238,7 +258,7 @@ def main():
     logger.info("Acquiring a exclusive lock on ZooKeeper...")
     try:
         zk = ZooKeeper(','.join(options.zk_hosts))
-        with ZkLock(zk, Constants.ZOOKEEPER_LOCK) as lock:
+        with ZkLock(zk, Constants.ZOOKEEPER_LOCK):
             logger.info("Lock acquired! Connecting to Redis...")
             nm = RedisMonitor(zk=zk, redis_hosts=options.rs_hosts, zk_path=options.zk_path)
             nm.execute()
