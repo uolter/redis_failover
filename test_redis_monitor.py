@@ -5,45 +5,240 @@ from redis_monitor import RedisMonitor
 import Queue
 from redis_failover.utils import *
 
-class Mock():
-
-    def __init__(self, *args, **kwargs):
-        self.class_name = args[0]
-
-    def __getattr__(self, name, *args, **kwargs):
-        def function(*args, **kwargs):
-            return (name, args)
-        return function
+HOST = "localhost"
+PORT = 2181
 
 
 class TestRedisMonitor(unittest.TestCase):
 
     def setUp(self):
         print "### setUp ###"
-        def myfunc():
-            pass
-        zk_mock = Mock("ZooKeeper")
-        redis_mock = Mock("redis.Redis")
-        self.monitor = RedisMonitor(zk=zk_mock, redis_hosts="localhost:6379,localhost:6389,localhost:6399", zk_path="/test/redis")
-        self.monitor.redis_class = redis_mock("localhost:2181,localhost:2182")
+        self.monitor = RedisMonitor(zk=None, redis_hosts="localhost:6379,localhost:6389,localhost:6399", zk_path="/test/redis")
+        self.monitor.zk = MockZooKeeper("zk")
+        self.monitor.redis_class = MockRedis
+        self.monitor.zk_properties = MockZooKeeper("zk_properties")
+        print "@@@ self.redis_class=%s" % str(self.monitor.redis_class)
         self.monitor.queue = Queue.Queue()
-        #self.monitor.discover_redis = myfunc
 
 
-    def test_first(self):
-        print "test_first"
-        message = self._create_message("localhost", 8080, REDIS_STATUS_OK)
-        self.monitor.queue.put(message)
-        self.monitor.cluster.add_node("localhost", 8080, ROLE_MASTER, REDIS_STATUS_OK)
-        self.monitor._parse_messages()
+    def test_all_ok(self):
+        print "test_all_ok"
+        master = self.monitor.cluster.add_node(HOST, PORT, ROLE_MASTER, REDIS_STATUS_OK)
+        slave1 = self.monitor.cluster.add_node(HOST, PORT+1, ROLE_SLAVE, REDIS_STATUS_OK)
+        slave2 = self.monitor.cluster.add_node(HOST, PORT+2, ROLE_SLAVE, REDIS_STATUS_OK)
         
-    def _create_message(self, redis_host, redis_port, redis_status):
+        self.send_OK_Message(HOST, PORT)
+        self.monitor._parse_message_from_queue()
+        
+        self.send_OK_Message(HOST, PORT+1)
+        self.monitor._parse_message_from_queue()
+        
+        self.send_OK_Message(HOST, PORT+2)
+        self.monitor._parse_message_from_queue()
+
+        self.assertTrue(master.is_master())
+        self.assertTrue(master.is_alive())
+        
+        self.assertTrue(slave1.is_slave())
+        self.assertTrue(slave1.is_alive())
+        
+        self.assertTrue(slave2.is_slave())
+        self.assertTrue(slave2.is_alive())
+
+
+    def test_one_slave_KO(self):
+        print "test_one_slave_KO"
+        master = self.monitor.cluster.add_node(HOST, PORT, ROLE_MASTER, REDIS_STATUS_OK)
+        slave1 = self.monitor.cluster.add_node(HOST, PORT+1, ROLE_SLAVE, REDIS_STATUS_OK)
+        slave2 = self.monitor.cluster.add_node(HOST, PORT+2, ROLE_SLAVE, REDIS_STATUS_OK)
+        
+        self.send_OK_Message(HOST, PORT+1)
+        self.monitor._parse_message_from_queue()
+        
+        self.send_OK_Message(HOST, PORT)
+        self.monitor._parse_message_from_queue()
+        
+        self.send_KO_Message(HOST, PORT+2)
+        self.monitor._parse_message_from_queue()
+
+        self.assertTrue(master.is_master())
+        self.assertTrue(master.is_alive())
+
+        self.assertTrue(slave1.is_slave())
+        self.assertTrue(slave1.is_alive())
+
+        self.assertTrue(slave2.is_slave())
+        self.assertFalse(slave2.is_alive())
+
+
+    def test_master_KO(self):
+        print "test_master_KO"
+        master = self.monitor.cluster.add_node(HOST, PORT, ROLE_MASTER, REDIS_STATUS_OK)
+        slave1 = self.monitor.cluster.add_node(HOST, PORT+1, ROLE_SLAVE, REDIS_STATUS_OK)
+        slave2 = self.monitor.cluster.add_node(HOST, PORT+2, ROLE_SLAVE, REDIS_STATUS_OK)
+        
+        self.send_OK_Message(HOST, PORT+1)
+        self.monitor._parse_message_from_queue()
+        
+        self.send_KO_Message(HOST, PORT)
+        self.monitor._parse_message_from_queue()
+        
+        self.send_OK_Message(HOST, PORT+2)
+        self.monitor._parse_message_from_queue()
+
+        self.assertTrue(master.is_slave())
+        self.assertFalse(master.is_alive())
+
+        self.assertTrue(slave1.is_master())
+        self.assertTrue(slave1.is_alive())
+
+        self.assertTrue(slave2.is_slave())
+        self.assertTrue(slave2.is_alive())
+
+
+    def test_all_going_KO_master(self):
+        print "test_all_going_KO_master"
+        master = self.monitor.cluster.add_node(HOST, PORT, ROLE_MASTER, REDIS_STATUS_OK)
+        slave1 = self.monitor.cluster.add_node(HOST, PORT+1, ROLE_SLAVE, REDIS_STATUS_OK)
+        slave2 = self.monitor.cluster.add_node(HOST, PORT+2, ROLE_SLAVE, REDIS_STATUS_OK)
+        
+        # kill slave1
+        self.send_KO_Message(HOST, PORT+1)
+        self.monitor._parse_message_from_queue()
+
+        self.assertTrue(slave1.is_slave())
+        self.assertFalse(slave1.is_alive())
+        
+        # kill master
+        self.send_KO_Message(HOST, PORT)
+        self.monitor._parse_message_from_queue()
+
+        self.assertTrue(master.is_slave())
+        self.assertFalse(master.is_alive())
+        
+        # kill slave2
+        self.send_KO_Message(HOST, PORT+2)
+        self.monitor._parse_message_from_queue()
+
+        self.assertTrue(slave2.is_master())
+        self.assertFalse(slave2.is_alive())
+
+        # slave2 is resurrected as master
+        self.send_OK_Message(HOST, PORT+2)
+        self.monitor._parse_message_from_queue()
+
+        self.assertTrue(slave2.is_master())
+        self.assertTrue(slave2.is_alive())
+
+        # slave1 is resurrected as slave
+        self.send_OK_Message(HOST, PORT+1)
+        self.monitor._parse_message_from_queue()
+
+        self.assertTrue(slave1.is_slave())
+        self.assertTrue(slave1.is_alive())
+
+
+    def test_all_going_KO_slave(self):
+        print "test_all_going_KO_slave"
+        master = self.monitor.cluster.add_node(HOST, PORT, ROLE_MASTER, REDIS_STATUS_OK)
+        slave1 = self.monitor.cluster.add_node(HOST, PORT+1, ROLE_SLAVE, REDIS_STATUS_OK)
+        slave2 = self.monitor.cluster.add_node(HOST, PORT+2, ROLE_SLAVE, REDIS_STATUS_OK)
+        
+        # kill slave1
+        self.send_KO_Message(HOST, PORT+1)
+        self.monitor._parse_message_from_queue()
+
+        self.assertTrue(slave1.is_slave())
+        self.assertFalse(slave1.is_alive())
+        
+        # kill master
+        self.send_KO_Message(HOST, PORT)
+        self.monitor._parse_message_from_queue()
+
+        self.assertTrue(master.is_slave())
+        self.assertFalse(master.is_alive())
+        
+        # kill slave2
+        self.send_KO_Message(HOST, PORT+2)
+        self.monitor._parse_message_from_queue()
+
+        self.assertTrue(slave2.is_master())
+        self.assertFalse(slave2.is_alive())
+
+        # slave1 is resurrected
+        self.send_OK_Message(HOST, PORT+1)
+        self.monitor._parse_message_from_queue()
+
+        self.assertTrue(slave1.is_master())
+        self.assertTrue(slave1.is_alive())
+
+        # slave2 is resurrected
+        self.send_OK_Message(HOST, PORT+2)
+        self.monitor._parse_message_from_queue()
+
+        self.assertTrue(slave2.is_alive())
+        self.assertTrue(slave2.is_slave())
+
+
+    def test_all_resurrecting(self):
+        print "test_all_resurrecting"
+        master = self.monitor.cluster.add_node(HOST, PORT, ROLE_MASTER, REDIS_STATUS_KO)
+        slave1 = self.monitor.cluster.add_node(HOST, PORT+1, ROLE_SLAVE, REDIS_STATUS_KO)
+        slave2 = self.monitor.cluster.add_node(HOST, PORT+2, ROLE_SLAVE, REDIS_STATUS_KO)
+        # kill slave1
+        self.send_KO_Message(HOST, PORT+1)
+        self.send_KO_Message(HOST, PORT)
+        self.send_KO_Message(HOST, PORT+2)
+
+        self.monitor._parse_message_from_queue()
+        self.assertTrue(slave1.is_slave())
+        self.assertFalse(slave1.is_alive())
+        
+        self.monitor._parse_message_from_queue()
+        self.assertTrue(master.is_master())
+        self.assertFalse(master.is_alive())
+        
+        self.monitor._parse_message_from_queue()
+        self.assertTrue(slave2.is_slave())
+        self.assertFalse(slave2.is_alive())
+
+
+    def send_OK_Message(self, redis_host, redis_port):
+        self.send_message(redis_host, redis_port, REDIS_STATUS_OK)
+
+    def send_KO_Message(self, redis_host, redis_port):
+        self.send_message(redis_host, redis_port, REDIS_STATUS_KO)
+
+    def send_message(self, redis_host, redis_port, redis_status):
+        message = self.create_message(redis_host, redis_port, redis_status)
+        self.monitor.queue.put(message)
+
+    def create_message(self, redis_host, redis_port, redis_status):
         worker_name = '%s:%s' % (redis_host, redis_port)
         text = "%s,%s" % (worker_name, redis_status)
         return text
 
     def tearDown(self):
         print "### tearDown ###"
+
+
+
+class MockRedis(object):
+
+    def __init__(self, *args, **kwargs):
+        print "new MockRedis %s" % str(args)
+
+    def slaveof(self, host=HOST, port=PORT):
+        print "called slaveof: %s, %d" % (host, port)
+
+
+class MockZooKeeper(object):
+
+    def __init__(self, *args, **kwargs):
+        print "new MockZooKeeper %s" % str(args)
+    
+    def update(self, master, slaves):
+        print "called update: %s, %s" % (master, slaves)
 
 
 if __name__ == '__main__':

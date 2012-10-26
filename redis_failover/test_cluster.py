@@ -38,7 +38,7 @@ class TestCluster(unittest.TestCase):
         #message = self._create_message(HOST, PORT, REDIS_STATUS_KO)
         self.cluster.promote_new_master(old_master)
         node = self.cluster.get_master()
-        self.assertIsNone(node)
+        self.assertIsNotNone(node)
 
     def test_promote_new_master_all_dead(self):
         print "test_promote_new_master_all_dead"

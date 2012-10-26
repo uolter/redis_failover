@@ -41,7 +41,7 @@ class Node(object):
     def setKO(self):
         self._status = REDIS_STATUS_KO
 
-    def _set_master(self):
+    def set_master(self):
         self._role = ROLE_MASTER
 
     def set_slave(self):
@@ -71,15 +71,15 @@ class Cluster(object):
         return None
 
     def promote_new_master(self, old_master):
-        assert old_master.is_master()
-        old_master.setKO()
+        #old_master.setKO()
         old_master.set_slave()
         for k in self._map:
             node = self._map[k]
             if node.is_alive():
-                self._set_role(host, port, ROLE_MASTER)
+                self._set_role(node.host, node.port, ROLE_MASTER)
                 return node
-        return None
+        old_master.set_master()
+        return old_master
 
 
     def filtered_list(self, roles=(ROLE_MASTER, ROLE_SLAVE), status=(REDIS_STATUS_OK, REDIS_STATUS_KO)):
@@ -102,7 +102,7 @@ class Cluster(object):
 
     def _set_role(self, host, port, role):
         key = self._make_key(host, port)
-        self._map[key].role = role
+        self._map[key]._role = role
 
 
     def _make_key(self, host, port):
