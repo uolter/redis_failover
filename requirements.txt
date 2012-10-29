@@ -1,4 +1,5 @@
 redis==2.7.1
 zc-zookeeper-static==3.4.4
+zc.thread==0.1.0
 zc.zk==1.0.0
-zktools==0.2.1
+zktools==0.3dev

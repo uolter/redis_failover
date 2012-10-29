@@ -3,11 +3,12 @@
 import unittest
 from redis_monitor import RedisMonitor
 import Queue
-from redis_failover.utils import *
+from redis_failover.utils import \
+    ROLE_MASTER, ROLE_SLAVE, \
+    REDIS_STATUS_OK, REDIS_STATUS_KO
 
 HOST = "localhost"
 PORT = 2181
-
 
 class TestRedisMonitor(unittest.TestCase):
 
@@ -19,7 +20,6 @@ class TestRedisMonitor(unittest.TestCase):
         self.monitor.zk_properties = MockZooKeeper("zk_properties")
         print "@@@ self.redis_class=%s" % str(self.monitor.redis_class)
         self.monitor.queue = Queue.Queue()
-
 
     def test_all_ok(self):
         print "test_all_ok"
@@ -45,7 +45,6 @@ class TestRedisMonitor(unittest.TestCase):
         self.assertTrue(slave2.is_slave())
         self.assertTrue(slave2.is_alive())
 
-
     def test_one_slave_KO(self):
         print "test_one_slave_KO"
         master = self.monitor.cluster.add_node(HOST, PORT, ROLE_MASTER, REDIS_STATUS_OK)
@@ -70,7 +69,6 @@ class TestRedisMonitor(unittest.TestCase):
         self.assertTrue(slave2.is_slave())
         self.assertFalse(slave2.is_alive())
 
-
     def test_master_KO(self):
         print "test_master_KO"
         master = self.monitor.cluster.add_node(HOST, PORT, ROLE_MASTER, REDIS_STATUS_OK)
@@ -94,7 +92,6 @@ class TestRedisMonitor(unittest.TestCase):
 
         self.assertTrue(slave2.is_slave())
         self.assertTrue(slave2.is_alive())
-
 
     def test_all_going_KO_master(self):
         print "test_all_going_KO_master"
@@ -137,7 +134,6 @@ class TestRedisMonitor(unittest.TestCase):
         self.assertTrue(slave1.is_slave())
         self.assertTrue(slave1.is_alive())
 
-
     def test_all_going_KO_slave(self):
         print "test_all_going_KO_slave"
         master = self.monitor.cluster.add_node(HOST, PORT, ROLE_MASTER, REDIS_STATUS_OK)
@@ -179,7 +175,6 @@ class TestRedisMonitor(unittest.TestCase):
         self.assertTrue(slave2.is_alive())
         self.assertTrue(slave2.is_slave())
 
-
     def test_all_resurrecting(self):
         print "test_all_resurrecting"
         master = self.monitor.cluster.add_node(HOST, PORT, ROLE_MASTER, REDIS_STATUS_KO)
@@ -202,7 +197,6 @@ class TestRedisMonitor(unittest.TestCase):
         self.assertTrue(slave2.is_slave())
         self.assertFalse(slave2.is_alive())
 
-
     def send_OK_Message(self, redis_host, redis_port):
         self.send_message(redis_host, redis_port, REDIS_STATUS_OK)
 
@@ -220,7 +214,6 @@ class TestRedisMonitor(unittest.TestCase):
 
     def tearDown(self):
         print "### tearDown ###"
-
 
 
 class MockRedis(object):
