@@ -26,6 +26,7 @@ class Cluster(object):
 
     def promote_new_master(self, old_master):
         old_master.set_slave()
+        old_master.setKO()
         for k in self._map:
             node = self._map[k]
             if node.is_alive():
