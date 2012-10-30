@@ -29,6 +29,7 @@ and slaves redis 'cluster'.
 * **RedisMonitor**: is an high level sentinel responsible to watch over the redis nodes and promote a slave to master in case
 of the starting master crashes.
 
+![Architecture diagram](https://github.com/uolter/redis_failover/raw/master/misc/RedisFailover.png)
 
 Installation
 ============
