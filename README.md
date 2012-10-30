@@ -30,5 +30,12 @@ and slaves redis 'cluster'.
 of the starting master crashes.
 
 
+License:
+=======
+
+Licensed under the Apache License, Version 2.0. See LICENSE for details.
+
+Copyright 2012 Sourcesense http://www.sourcesense.com
+
 
 
