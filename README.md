@@ -44,7 +44,7 @@ will install all the dependecies which are:
 * redis >= 2.7.1                  # redis python api client              
 * zc-zookeeper-static >= 3.4.4    # ZooKeeper Python bindings             
 * zc.zk >= 1.0.0                  # high-level interfaces to the low-level zookeeper extension
-* zktools >= 0.3dev               # tools implementing higher level constructs such as Configuration and Lock
+* zktools >= 0.3                  # tools implementing higher level constructs such as Configuration and Lock
 
 
 License
