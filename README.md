@@ -26,7 +26,7 @@ naming, providing distributed synchronization, and providing group services.
 (https://github.com/andymccurdy/redis-py) providing a failover mechanism and a load balancing between the master 
 and slaves redis 'cluster'.
 
-* **RedisMonitor**: is an high level sentinel responible to watch over the redis nodes and promote a slave to master in case
+* **RedisMonitor**: is an high level sentinel responsible to watch over the redis nodes and promote a slave to master in case
 of the starting master crashes.
 
 
