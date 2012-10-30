@@ -37,7 +37,7 @@ Both the client and the monitor have **dependencies** on other python packages y
 **easy_install**. For the client we also provided a setup script to install the required modules inside the python path.
 
 
-`pip requirements.txt`
+`pip install -r requirements.txt`
 
 will install all the dependecies which are:
 
