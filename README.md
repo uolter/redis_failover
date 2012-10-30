@@ -33,7 +33,18 @@ of the starting master crashes.
 Installation
 ============
 
+Both the client and the monitor have **dependencies** on other python packages you can install with **pip** or 
+**easy_install**. For the client we also provided a setup script to install the required modules inside the python path.
 
+
+`pip requirements.txt`
+
+will install all the dependecies which are:
+
+* redis >= 2.7.1                  # redis python api client              
+* zc-zookeeper-static >= 3.4.4    # ZooKeeper Python bindings             
+* zc.zk >= 1.0.0                  # high-level interfaces to the low-level zookeeper extension
+* zktools >= 0.3dev               # tools implementing higher level constructs such as Configuration and Lock
 
 
 License
