@@ -78,6 +78,33 @@ The Redis Monitor can be executed as a command line script providing a set of ba
 It will start a monitor which speaks to the ZooKeeper cluster identified with localhost:2181 localhost:2182 localhost:2183 and will check the redis instances identified with localhost:6379 localhost:6389 localhost:6399. 
 Every 30 sec each worker (process) sends a keep alive message to the master process which records the status and role (master / slave) of the redis servers to the ZooKeeper path /redis/cluster
 
+
+Now, that the monitor is running and above all it notified to ZooKeeper the redis cluster scheme and status you can start playing with the client.
+
+just open a python console:
+
+
+    from redis_failover import RedisFailover
+
+    rs = RedisFailover(hosts='localhost:2181,localhost:2182,localhost:2183', zk_path='/redis/cluster')
+
+    # celebrate !!!! rs is now the redis client … try some methods
+    rs.keys()
+    >>>
+
+    ['ACTIVITY:max:QOL:20121017',
+     'ACTIVITY:bob:QOL:20121029',
+     'SERVICES',
+     'AUTH:admin:secret',
+     'SERVICE:QOL',
+     ]
+
+The client accepts as input parametes the list of ZooKeeper servers (comma separated) and the ZooKeeper path where
+he can get the list of redis servers.
+Behind the hood it also creates a connection pool for each readis server. 
+Hereafter it is possibile to use all the redis commands as documented here: https://github.com/andymccurdy/redis-py
+since as already pointed out the failover client is more or less a wrapper of the standard python redis client.
+
 License
 =======
 
