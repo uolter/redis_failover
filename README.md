@@ -71,6 +71,13 @@ The Redis Monitor can be executed as a command line script providing a set of ba
       -s, --sleeptime=SLEEP_TIME              waiting time in seconds between thread execution
 
 
+    e.g:
+    python start_monitor.py -p /redis/cluster -z localhost:2181,localhost:2182,localhost:2183 
+    -r localhost:6379,localhost:6389,localhost:6399 -s 30
+
+It will start a monitor which speaks to the ZooKeeper cluster identified with localhost:2181 localhost:2182 localhost:2183 and will check the redis instances identified with localhost:6379 localhost:6389 localhost:6399. 
+Every 30 sec each worker (process) sends a keep alive message to the master process which records the status and role (master / slave) of the redis servers to the ZooKeeper path /redis/cluster
+
 License
 =======
 
