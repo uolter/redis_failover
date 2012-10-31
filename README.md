@@ -9,7 +9,7 @@ Authors:
 * Walter Traspadini <wtraspad@gmail.com> (https://twitter.com/uollter)
 * Maurizio Turatti <maurizio.turatti@gmail.com> (https://twitter.com/mkj6)
 
-It's more or less the python version of the Ruby solution you can get from here 
+It's more or less the python version of the redis_failover **Ruby solution** from [@ryanlecompte](https://twitter.com/ryanlecompte) you can get from here 
 https://github.com/ryanlecompte/redis_failover and which inspired us.
 
 At the time we put in place the solution the redis stable version 2.6.2 does not already have a failover mechanism 
