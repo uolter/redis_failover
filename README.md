@@ -47,6 +47,29 @@ will install all the dependecies which are:
 * zc.zk >= 1.0.0                  # high-level interfaces to the low-level zookeeper extension
 * zktools >= 0.3                  # tools implementing higher level constructs such as Configuration and Lock
 
+To quickly set up a ZooKeeper standalone server or a ZooKeeper cluster please refer to the official documentation 
+**ZooKeeper Getting Started Guide**: http://zookeeper.apache.org/doc/r3.1.2/zookeeperStarted.html
+
+Since the RedisFailover client rely on a path the Monitor creates into ZooKeeper you must start Zookeeper first, then the
+Redis Monitor and evenutaly you can use the client.
+
+The Redis Monitor can be executed as a command line script providing a set of basic configurations as simple options:
+
+python start_monitor.py --help
+
+Usage: start_monitor.py [options]
+
+Options:
+  -h, --help                              show this help message and exit
+
+  -z, --zkhosts=ZK_HOSTS                  zookeeper list of host:port comma separated
+
+  -p, --path=ZK_PATH                      zookeeper root path
+
+  -r, --redishosts=RS_HOSTS               redis list of host:port comma separated
+
+  -s SLEEP_TIME, --sleeptime=SLEEP_TIME   waiting time in seconds between thread execution
+
 
 License
 =======
