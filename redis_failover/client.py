@@ -6,9 +6,10 @@ Created on Oct 8, 2012
 import redis
 import random
 import zc.zk
-from utils import \
-    ROLE_MASTER, ROLE_SLAVE, REDIS_PATH, \
-    REDIS_STATUS_OK
+from utils import REDIS_PATH, REDIS_STATUS_OK
+
+SLAVES = "slaves"
+MASTER = "master"
 
 
 class RedisFailover():
@@ -77,7 +78,7 @@ class RedisFailover():
    
     def _setup_redis_slaves(self):
                 
-        slaves = self.zk.get_properties(self.zk_path)[ROLE_SLAVE]
+        slaves = self.zk.get_properties(self.zk_path)[SLAVES]
         
         self.host_slaves = []
         for s in slaves:
@@ -98,7 +99,7 @@ class RedisFailover():
                
     def _setup_redis_master(self):
          
-        self.host_master = self.zk.get_properties(self.zk_path)[ROLE_MASTER][0]
+        self.host_master = self.zk.get_properties(self.zk_path)[MASTER][0]
         
         # connection pool to the master node.
         pool = redis.ConnectionPool(host=self.host_master.split(':')[0], 
