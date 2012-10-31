@@ -55,20 +55,20 @@ Redis Monitor and evenutaly you can use the client.
 
 The Redis Monitor can be executed as a command line script providing a set of basic configurations as simple options:
 
-python start_monitor.py --help
+    python start_monitor.py --help
 
-Usage: start_monitor.py [options]
+    Usage: start_monitor.py [options]
 
-Options:
-  -h, --help                              show this help message and exit
+    Options:
+      -h, --help                              show this help message and exit
 
-  -z, --zkhosts=ZK_HOSTS                  zookeeper list of host:port comma separated
+      -z, --zkhosts=ZK_HOSTS                  zookeeper list of host:port comma separated
 
-  -p, --path=ZK_PATH                      zookeeper root path
+      -p, --path=ZK_PATH                      zookeeper root path
 
-  -r, --redishosts=RS_HOSTS               redis list of host:port comma separated
+      -r, --redishosts=RS_HOSTS               redis list of host:port comma separated
 
-  -s SLEEP_TIME, --sleeptime=SLEEP_TIME   waiting time in seconds between thread execution
+      -s, --sleeptime=SLEEP_TIME              waiting time in seconds between thread execution
 
 
 License
