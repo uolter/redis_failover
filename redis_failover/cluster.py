@@ -1,4 +1,6 @@
-# cluster.py
+'''
+@author: mturatti
+''' 
 
 from utils import \
     ROLE_MASTER, ROLE_SLAVE, \

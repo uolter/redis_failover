@@ -1,4 +1,6 @@
-# test_cluster.py
+'''
+@author: mturatti
+''' 
 
 import unittest
 from cluster import Cluster

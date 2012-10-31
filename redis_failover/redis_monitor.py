@@ -1,18 +1,19 @@
+'''
+@author: mturatti
+'''
+
 from multiprocessing import Process, Queue
 from time import sleep
-
 import redis
 from redis.exceptions import ConnectionError
+from zc.zk import OPEN_ACL_UNSAFE
+from utils import REDIS_STATUS_OK, REDIS_STATUS_KO, ROLE_SLAVE
+from cluster import Cluster
 import logging
-import logging.config
 
-from zktools.locking import ZkLock
-from zc.zk import ZooKeeper, FailedConnect, OPEN_ACL_UNSAFE
-from redis_failover.utils import REDIS_STATUS_OK, REDIS_STATUS_KO, ROLE_SLAVE
-from redis_failover.cluster import Cluster
+REDIS_MONITOR_DUMMY_LIST = 'redis_monitor_dummy_list'
 
-logging.config.fileConfig('loggers_redis_monitor.conf')
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("redis_monitor")
 
 
 class RedisMonitor(object):
@@ -20,7 +21,7 @@ class RedisMonitor(object):
         changes the cluster configuration in ZooKeeper when a Worker
         send an update message.'''
 
-    def __init__(self, zk, redis_hosts, zk_path='/redis/cluster'):
+    def __init__(self, zk, redis_hosts, sleep_time, zk_path):
         self.redis_class = redis.Redis
         self.zk = zk
         self.cluster = Cluster()
@@ -30,10 +31,12 @@ class RedisMonitor(object):
         self.list_of_workers = []
         self.zk_path = zk_path
         self.redis_servers_map = {}
+        self.sleep_time = sleep_time
 
     def execute(self):
         ''' execute is the only public method. It starts the main loop.'''
         logger.info("Enter")
+        logger.info("self.redis_class=%s", str(self.redis_class))
         self._discover_redis()
         while 1:
             self._parse_message_from_queue()
@@ -131,7 +134,7 @@ class RedisMonitor(object):
                 self.cluster.add_node(host, port, role, REDIS_STATUS_KO)
             finally:
                 redis_server = self._get_redis_server(host=host, port=port)
-                self.list_of_workers.append(Worker(redis_server, host, port, self.queue))
+                self.list_of_workers.append(Worker(redis_server, host, port, self.queue, self.sleep_time))
 
     def _promote_new_master(self, old_master):
         ''' Promotes the first available node as new master,
@@ -181,18 +184,19 @@ class Worker(object):
         It uses the redis BLPOP blocking call to test for connection. The call returns
         immediately with an exception if the connection to the redis server is lost.'''
 
-    def __init__(self, redis_server, redis_host, redis_port, queue):
+    def __init__(self, redis_server, redis_host, redis_port, queue, sleep_time):
         self.redis_server = redis_server
         self.redis_host = redis_host
         self.redis_port = int(redis_port)
         self.queue = queue
         self.worker_name = '%s:%s' % (self.redis_host, self.redis_port)
         self.process = None
+        self.sleep_time = sleep_time
 
     def start(self):
         ''' Start the single child process as daemon.'''
         self.process = Process(target=self.worker, name=self.worker_name, 
-            args=(self.redis_server, self.worker_name, self.redis_host, self.redis_port))
+            args=(self.redis_server, self.worker_name, self.redis_host, self.redis_port, self.sleep_time))
         self.process.daemon = True
         self.process.start()
 
@@ -206,14 +210,14 @@ class Worker(object):
 
     def check_redis_server(self, timeout):
         ''' Uses the BLPOP blocking call to test that the connection is still alive.'''
-        self.redis_server.blpop(Const.REDIS_MONITOR_DUMMY_LIST, timeout)
+        self.redis_server.blpop(REDIS_MONITOR_DUMMY_LIST, timeout)
 
     def redis_ready(self, redis_info):
         ''' Checks for the two propeties: "loading" and "master_sync_in_progress".
             If they are present and not zero, then the redis node is still synching with master'''
         return redis_info.get("loading", 0) == 0 and redis_info.get("master_sync_in_progress", 0) == 0
 
-    def worker(self, redis_server, worker_name, redis_host, redis_port):
+    def worker(self, redis_server, worker_name, redis_host, redis_port, sleep_time):
         ''' This is the main function, executed by each monitoring process.'''
         logger.info("%s started.", worker_name)
         while 1:
@@ -225,7 +229,7 @@ class Worker(object):
                     # The connection is fine, send the OK message
                     self.send_message(REDIS_STATUS_OK)                
                     logger.debug("%s: (%s) Node status [%r]", worker_name, role, REDIS_STATUS_OK)
-                    self.check_redis_server(timeout=Const.SLEEP_TIME)
+                    self.check_redis_server(timeout=sleep_time)
                 else:
                     logger.warn("%s: Redis node (%s) is not ready yet: loading: [%r], master_sync_in_progress: [%r]",
                         worker_name, role, redis_info.get("loading", ''), redis_info.get("master_sync_in_progress", ''))
@@ -234,51 +238,3 @@ class Worker(object):
                 self.send_message(REDIS_STATUS_KO)
                 logger.error("%s: Redis Connection Error: %r", worker_name, connerr)
                 sleep(10)
-
-
-class Const():
-    ''' Some useful local constants.'''
-    
-    REDIS_MONITOR_DUMMY_LIST = 'redis_monitor_dummy_list'
-    SLEEP_TIME = -1
-    ZOOKEEPER_LOCK = 'redis_monitor_lock'
-    LOG_FILE = None
-
-#
-# Module objects
-#    
-
-from optparse import OptionParser
-
-def opt_callback(option, opt, value, parser):
-    setattr(parser.values, option.dest, value.split(','))
-
-def main():
-    logger.info("Enter")
-    parser = OptionParser()
-    parser.add_option("-z", "--zkhosts", dest="zk_hosts", type='string', action='callback', callback=opt_callback,
-                  help="zookeeper list of host:port comma separated ")
-    parser.add_option("-p", "--path", dest="zk_path", type='string',
-                  help="zookeeper root path")
-    parser.add_option("-r", "--redishosts", dest="rs_hosts",type='string', action='callback', callback=opt_callback,
-                  help="redis list of host:port comma separated ")
-    parser.add_option("-s", "--sleeptime", dest="sleep_time", type='int', help="waiting time in seconds between thread execution")
-    options = parser.parse_args()[0]
-    if options.sleep_time:
-        Const.SLEEP_TIME = options.sleep_time
-        logger.info("SLEEP_TIME: %d", Const.SLEEP_TIME)
-    logger.info("Options: %r", options)
-    logger.info("Acquiring a exclusive lock on ZooKeeper...")
-    try:
-        zk = ZooKeeper(','.join(options.zk_hosts))
-        with ZkLock(zk, Const.ZOOKEEPER_LOCK):
-            logger.info("Lock acquired! Connecting to Redis...")
-            nm = RedisMonitor(zk=zk, redis_hosts=options.rs_hosts, zk_path=options.zk_path)
-            nm.execute()
-    except FailedConnect, err:
-        logger.critical(err)
-    logger.info("Exit")
-
-
-if __name__ == '__main__':
-    main()

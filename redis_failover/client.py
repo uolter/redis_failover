@@ -1,13 +1,15 @@
 '''
 Created on Oct 8, 2012
-
 @author: uolter
 '''
 
 import redis
 import random
 import zc.zk
-import utils
+from utils import REDIS_PATH, REDIS_STATUS_OK
+
+SLAVES = "slaves"
+MASTER = "master"
 
 
 class RedisFailover():
@@ -57,7 +59,7 @@ class RedisFailover():
     }
     
     
-    def __init__(self, hosts='localhost:2181', zk_path='/redis/cluster'):
+    def __init__(self, hosts='localhost:2181', zk_path=REDIS_PATH):
          
         self.hosts=hosts # zookeeper hosts list.
         self.zk= zc.zk.ZooKeeper(self.hosts)
@@ -76,13 +78,13 @@ class RedisFailover():
    
     def _setup_redis_slaves(self):
                 
-        slaves = self.zk.get_properties(self.zk_path)['slaves']
+        slaves = self.zk.get_properties(self.zk_path)[SLAVES]
         
         self.host_slaves = []
         for s in slaves:
             host = slaves[s][0]
             status = slaves[s][1]
-            if (host and status and status == utils.REDIS_STATUS_OK):
+            if (host and status and status == REDIS_STATUS_OK):
                 self.host_slaves.append(host) # slave avalible for reading.
         
         # redis slaves connection pool list
@@ -97,7 +99,7 @@ class RedisFailover():
                
     def _setup_redis_master(self):
          
-        self.host_master = self.zk.get_properties(self.zk_path)['master'][0]
+        self.host_master = self.zk.get_properties(self.zk_path)[MASTER][0]
         
         # connection pool to the master node.
         pool = redis.ConnectionPool(host=self.host_master.split(':')[0], 
