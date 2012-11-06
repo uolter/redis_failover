@@ -74,7 +74,7 @@ class TestCluster(unittest.TestCase):
         self.assertEqual(len(self.cluster), 1)
         self.cluster.promote_new_master(old_master)
         node = self.cluster.get_master()
-        self.assertIsNotNone(node)
+        self.assertTrue(node is not None)
         self.assertTrue(node.is_master())
         self.assertFalse(node.is_alive())
 
@@ -96,3 +96,4 @@ class TestCluster(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+    
