@@ -1,1 +1,0 @@
-This is a copy of https://github.com/mozilla-services/zktools which has been tested to work with our software. Please __don't use__ zktool 0.2.1 as distributed via PyPi (http://pypi.python.org/pypi/zktools/0.2.1) because it's buggy (the zk lock eats all the CPU).
