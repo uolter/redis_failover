@@ -4,5 +4,5 @@ zc-zookeeper-static==3.4.4
 zc.thread==0.1.0
 zc.zk==1.0.0
 # warning: the following package is not yet available on PyPi
-# use the attached distribution on zktools 0.3dev in resources folder
-zktools==0.2.1
+# use The fork https://github.com/mkjsix/zktools of zktools 0.3dev
+# zktools==0.3
