@@ -98,9 +98,9 @@ class RedisFailover():
         
                
     def _setup_redis_master(self):
-         
-        self.host_master = self.zk.get_properties(self.zk_path)[MASTER][0]
         
+        self.host_master = self.zk.get_properties(self.zk_path)[MASTER][0]
+         
         # connection pool to the master node.
         pool = redis.ConnectionPool(host=self.host_master.split(':')[0], 
                                     port=int(self.host_master.split(':')[1]))
