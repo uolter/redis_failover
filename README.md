@@ -108,6 +108,11 @@ Behind the hood it also creates a connection pool for each readis server.
 Hereafter it is possibile to use all the redis commands as documented here: https://github.com/andymccurdy/redis-py
 since as already pointed out the failover client is more or less a wrapper of the standard python redis client.
 
+Status
+======
+
+You can check the build history and unit test status at the following URL on drone.io [Status](https://drone.io/uolter/redis_failover)
+
 License
 =======
 
