@@ -111,7 +111,7 @@ since as already pointed out the failover client is more or less a wrapper of th
 Status
 ======
 
-You can check the build history and unit test status at the following URL on drone.io [Status](https://drone.io/uolter/redis_failover)
+You can check the build history and unit test status on drone.io [![](https://drone.io/uolter/redis_failover/status.png)](https://drone.io/uolter/redis_failover/latest)
 
 License
 =======
