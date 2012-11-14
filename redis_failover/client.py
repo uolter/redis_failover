@@ -59,11 +59,18 @@ class RedisFailover():
     }
     
     
-    def __init__(self, hosts='localhost:2181', zk_path=REDIS_PATH):
+    def __init__(self, hosts='localhost:2181', zk_path=REDIS_PATH, db=0):
+        '''
+        Keyword arguments:
+        hosts -- zookeeper host list comma separated (default localhost:2181)
+        zk_path -- zookeeper path where it reads redis end points (default /redis/cluster)
+        db -- redis database to read and write (default 0 )
+        '''
          
         self.hosts=hosts # zookeeper hosts list.
         self.zk= zc.zk.ZooKeeper(self.hosts)
         self.zk_path =zk_path
+        self.db = db
              
         @self.zk.properties(self.zk_path)
         def my_data(p):
@@ -92,7 +99,8 @@ class RedisFailover():
         
         for slave in self.host_slaves:
             pool = redis.ConnectionPool(host=slave.split(':')[0], 
-                                        port=int(slave.split(':')[1]))
+                                        port=int(slave.split(':')[1]),
+                                        db=self.db)
             
             self.redis_slaves.append(redis.Redis(connection_pool=pool))
         
@@ -103,7 +111,8 @@ class RedisFailover():
          
         # connection pool to the master node.
         pool = redis.ConnectionPool(host=self.host_master.split(':')[0], 
-                                    port=int(self.host_master.split(':')[1]))
+                                    port=int(self.host_master.split(':')[1]),
+                                    db = self.db)
         
         self.redis_master = redis.Redis(connection_pool=pool)
          
