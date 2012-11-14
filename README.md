@@ -89,7 +89,7 @@ just open a python console:
 
     from redis_failover import RedisFailover
 
-    rs = RedisFailover(hosts='localhost:2181,localhost:2182,localhost:2183', zk_path='/redis/cluster')
+    rs = RedisFailover(hosts='localhost:2181,localhost:2182,localhost:2183', zk_path='/redis/cluster', db=0)
 
     # celebrate !!!! rs is now the redis client … try some methods
     rs.keys()
