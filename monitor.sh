@@ -3,7 +3,7 @@
 
 PID_FILE="process.pid"
 
-PROGRAM="nohup python start_monitor.py -p /siac/redis/cluster -z localhost:2181,localhost:2182 -r localhost:6379,localhost:6389,localhost:6399 -s 30"
+PROGRAM="nohup python start_monitor.py -p /siac/redis/cluster -z localhost:2181,localhost:2182,localhost:2183 -r localhost:6379,localhost:6389,localhost:6399 -s 30"
 
 function quit_monitors {
 	pid="$(cat $PID_FILE)"
@@ -24,7 +24,7 @@ start)
     # start redis monitor
     $PROGRAM &
 	PID=$!
-	echo $PID > process.pid
+	echo $PID > $PID_FILE
 	
 ;;
 stop)
