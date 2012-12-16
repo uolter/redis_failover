@@ -5,4 +5,4 @@ zc.thread==0.1.0
 zc.zk==1.0.0
 # warning: the following package is not yet available on PyPi
 # use The fork https://github.com/mkjsix/zktools of zktools 0.3dev
-# zktools==0.3
+-f https://github.com/mkjsix/zktools zktools==0.3dev
