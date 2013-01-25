@@ -3,7 +3,7 @@ Redis Failover
 
 Python Redis failover is a solution based on Apache ZooKeeper.
 
-__WARNING__: this code is still alpha quality. We are testing under Mac OSX and Linux, with Python 2.6 and 2.7.
+Note: This code is still to be considered beta quality, but already used in a production environment since December 2012 without any issue.
 
 Authors:
 * Walter Traspadini <wtraspad@gmail.com> ([@uollter](https://twitter.com/uollter))
